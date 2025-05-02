@@ -1,4 +1,8 @@
+__pycache__
 *.db
 *.json
 .env
 data
+*.txt
+*.ipynb
+TODO
