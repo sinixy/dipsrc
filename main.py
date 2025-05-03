@@ -1,11 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+import motor.motor_asyncio
 
 from config import settings
 from services.dataset import PricesCache
 from services.registry import ModelRegistry
-from api import pickers, risk, optimize, market
+from api import pickers, risk, optimize, market, portfolios
 
 app = FastAPI()
 origins = [
@@ -22,16 +23,17 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    # load full price history into cache
     PricesCache.load(settings.DATA_PATH)
-    # discover available ML pickers
     ModelRegistry.scan(settings.ML_PICKERS_DIR)
+    client = motor.motor_asyncio.AsyncIOMotorClient(settings.MONGODB_URI)
+    app.state.db = client[settings.MONGODB_DB]
 
 # mount routers
 app.include_router(pickers.router, prefix="/model")
 app.include_router(risk.router, prefix="/risk")
 app.include_router(optimize.router)
 app.include_router(market.router)
+app.include_router(portfolios.router)
 
 
 if __name__ == "__main__":

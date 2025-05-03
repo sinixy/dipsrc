@@ -1,0 +1,10 @@
+fastapi==0.100.0
+uvicorn
+pydantic-settings
+skfolio
+python-dotenv
+yfinance
+aiohttp
+motor
+tqdm
+ta_lib-0.6.3-cp312-cp312-win_amd64.whl

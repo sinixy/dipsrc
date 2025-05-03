@@ -1,12 +1,9 @@
 import pandas as pd
-import sqlite3
 import os
 import json
-import requests
+import yfinance as yf
 from tqdm import tqdm
-from time import sleep
 from datetime import datetime
-
 
 
 def download_spy_components():
@@ -15,15 +12,12 @@ def download_spy_components():
     sp500_df = tables[0]
     changes_df = tables[1]
 
-    # Ensure directory exists
     os.makedirs("spy", exist_ok=True)
 
-    # Save current snapshot as a JSON list of tickers
     snapshot = sp500_df['Symbol'].tolist()
     with open("spy/2025-04-20-snapshot.json", "w") as f:
         json.dump(snapshot, f, indent=2)
 
-    # Build a normalized change list
     records = []
     for idx, row in changes_df.iterrows():
         date = pd.to_datetime(row['Date']['Date']).strftime("%Y-%m-%d")
@@ -32,7 +26,6 @@ def download_spy_components():
         if pd.notna(row['Removed']['Ticker']):
             records.append({"date": date, "event": "remove", "ticker": row['Removed']['Ticker']})
 
-    # Save component changes
     with open("spy/changes.json", "w") as f:
         json.dump(records, f, indent=2)
 
@@ -79,7 +72,7 @@ def get_all_unique_tickers_since(dt: str, current_tickers: list, change_events: 
     return [{'ticker': ticker, 'name': ''} for ticker in sn.union(set(current_tickers))]
 
 
-def load_prices(symbols, connection):
+def load_stooq_prices(symbols, connection):
     '''
     stock data columns:
     <TICKER>,<PER>,<DATE>,<TIME>,<OPEN>,<HIGH>,<LOW>,<CLOSE>,<VOL>,<OPENINT>
@@ -110,6 +103,34 @@ def load_prices(symbols, connection):
         df['date'] = pd.to_datetime(df['date'], format='%Y%m%d')
         df['ticker'] = symbol
         df.to_sql('prices', connection, if_exists='append', index=False)
+
+
+def download_prices(tickers: list[str], start: str = None, end: str = None, interval: str = '1wk') -> pd.DataFrame:
+    ''''
+    Download price data from yfinance.
+    If start is None, download all available data.
+    If end is None, download all available data until now.
+    '''
+    if start is None:
+        start = '2007-01-01'
+    if end is None:
+        end = datetime.now().strftime('%Y-%m-%d')
+
+    df = yf.download(
+        tickers,
+        start=start,
+        end=end,
+        interval=interval,
+        auto_adjust=True
+    )
+    df = (
+        df
+        .stack(level='Ticker')
+        .rename_axis(index=['Date','Ticker'])
+        .reset_index()
+    ).sort_values(['Ticker', 'Date']).reset_index(drop=True)
+    df.columns = [col.lower() for col in df.columns]
+    return df
 
 if __name__ == '__main__':
     pass

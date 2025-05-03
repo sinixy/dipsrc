@@ -4,7 +4,78 @@ import talib
 import sqlite3
 
 
-def generate_technicals(df, benchmark_df=None):
+def winsorize_mad(series: pd.Series, k=3):
+    """Robust clip at median +- k*MAD."""
+    if series.isna().all():
+        return series
+    med = series.median()
+    mad = np.median(np.abs(series - med))
+    return series.clip(lower=med - k * mad, upper=med + k * mad)
+
+def signed_log(x):
+    return np.sign(x) * np.log1p(np.abs(x))
+
+def robust_z(series: pd.Series):
+    if series.isna().all():
+        return series
+    return (series - series.mean()) / series.std(ddof=0)
+
+def normalize_fundamentals(df: pd.DataFrame):
+    """
+    df columns: ['ticker', 'date', <fundamental metrics…>]
+    Returns dataframe with all fundamental features cross-section z-scored
+    and ready to merge with your technical block.
+    """
+    df = df.copy()
+    df['date'] = pd.to_datetime(df['date'])
+    
+
+    per_share = [
+        'Book Value Per Share',
+        'Free Cash Flow Per Share',
+        'Operating Cash Flow Per Share'
+    ]
+
+    margins_ratios = [
+        'Asset Turnover', 'Current Ratio', 'Debt/Equity Ratio',
+        'EBIT Margin', 'Gross Margin', 'Net Profit Margin', 'Operating Margin',
+        'Pre-Tax Profit Margin', 'ROA - Return On Assets',
+        'ROE - Return On Equity', 'ROI - Return On Investment',
+        'Return On Tangible Equity', 'Inventory Turnover Ratio',
+        'Days Sales In Receivables', 'Receiveable Turnover',
+        'Long-term Debt / Capital'
+    ]
+
+    # ---------- 1. ticker standardisation ----------
+    cleaned_frames = []
+    for _, g in df.groupby('ticker'):
+        g = g.copy()
+
+        # log-transform dollar-per-share metrics
+        g[per_share] = g[per_share].apply(signed_log)
+
+        # winsorize all ratios / margins
+        g[margins_ratios] = g[margins_ratios].apply(winsorize_mad)
+
+        cleaned_frames.append(g)
+
+    df_clean = pd.concat(cleaned_frames, ignore_index=True)
+
+    # ---------- 2. cross-section standardisation ----------
+    feature_cols = [c for c in df_clean.columns if c not in ('ticker', 'date')]
+    df_clean[feature_cols] = (
+        df_clean
+        .groupby('date')[feature_cols]
+        .transform(robust_z)
+    )
+
+    for col in feature_cols:
+        df_clean[f'{col}_na'] = df_clean[col].isna().astype(int)
+    df_clean[feature_cols] = df_clean[feature_cols].fillna(0)
+
+    return df_clean
+
+def generate_technicals(df: pd.DataFrame, benchmark_df: pd.DataFrame = None):
     """
     df: DataFrame with columns ['ticker', 'date', 'open', 'high', 'low', 'close', 'volume']
     benchmark_df: optional DataFrame with 'date' and 'close' columns for SPX or other index
@@ -14,7 +85,7 @@ def generate_technicals(df, benchmark_df=None):
     feature_frames = []
 
     for ticker, group in df.groupby('ticker'):
-        group = group.copy().reset_index(drop=True)  # mfkng index mismatch during the merge requires reseting the group's index
+        group = group.copy().reset_index(drop=True)  # index mismatch during the merge requires reseting the group's index
         close = group['close'].values
         volume = group['volume'].values
 
@@ -94,7 +165,7 @@ def generate_technicals(df, benchmark_df=None):
 
     return final_df
 
-def resample_weekly(df):
+def resample_weekly(df: pd.DataFrame):
     """
     Expects df with ['ticker', 'date', 'close', 'volume'].
     Resamples to weekly data — last close of the week, summed volume.
@@ -109,7 +180,7 @@ def resample_weekly(df):
 
     return resampled
 
-def normalize_features(df):
+def normalize_features(df: pd.DataFrame):
     df = df.copy()
     
     exclude_cols = ['date', 'ticker', 'corr_rtn_volume_13w', 'corr_rtn_spyrtn_13w', 'rsi_13w', 'volume', 'close_raw', 'close_spy']
@@ -137,21 +208,16 @@ def normalize_features(df):
 def generate_labels(dataset: pd.DataFrame, fund_cols: list):
     dataset = dataset.copy()
 
-    # 2. Detect where any fundamental metric changes → start of a new quarter
     dataset['is_quarter_start'] = dataset.groupby('ticker')[fund_cols].apply(
         lambda x: x.ne(x.shift()).any(axis=1)
     ).astype(int).reset_index(drop=True)
 
-    # 3. Create quarter IDs
     dataset['quarter_id'] = dataset.groupby('ticker')['is_quarter_start'].cumsum()
-    # print(dataset[['ticker', 'date', 'quarter_id', 'is_quarter_start']].head(30))
 
-    # 4. Calculate labels based on whether stock outperformed SPY in that quarter
     labels = []
 
     for (ticker, quarter_id), group in dataset.groupby(['ticker', 'quarter_id']):
-        if len(group) < 2:
-            continue  # skip short quarters
+        if len(group) < 2: continue
 
         start = group.iloc[0]
         end = group.iloc[-1]
@@ -173,7 +239,7 @@ def generate_labels(dataset: pd.DataFrame, fund_cols: list):
             labels.append({
                 'ticker': ticker,
                 'date': row['date'],
-                'since_quarter_start': cnt / len(group),  # not i cuz of indexing
+                'since_quarter_start': cnt / len(group),  # not `i` cuz of indexing
                 'outperformed': label
             })
             cnt += 1
@@ -188,10 +254,7 @@ def generate_labels(dataset: pd.DataFrame, fund_cols: list):
     return dataset
 
 
-def merge():
-    tech = pd.read_csv('data/technicals.csv')
-    fund = pd.read_csv('data/financials/ratios.csv')
-
+def merge(tech: pd.DataFrame, fund: pd.DataFrame) -> pd.DataFrame:
     tech['date'] = pd.to_datetime(tech['date'])
     fund['date'] = pd.to_datetime(fund['date'])
 
@@ -210,7 +273,7 @@ def merge():
             t_df,
             f_df,
             on="date",
-            direction="backward"          # latest <= weekly date
+            direction="backward"  # latest <= weekly date
         )
         frames.append(merged)
 
@@ -225,10 +288,10 @@ def merge():
     dataset.drop(columns=['close_spy'], inplace=True)
     dataset.dropna(inplace=True)
 
-    dataset.to_csv("data/dataset.csv", index=False)
+    return dataset
 
 
-def generate():
+def generate_example():
     con = sqlite3.connect('data/data.db')
     df = pd.read_sql('SELECT * FROM prices WHERE date > "2007-06-01"', con)
     df['date'] = pd.to_datetime(df['date'])

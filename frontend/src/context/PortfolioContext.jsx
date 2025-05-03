@@ -8,6 +8,7 @@ export function PortfolioProvider({ children }) {
   const [riskModels, setRiskModels] = useState([]);
   const [selectedPicker, setSelectedPicker] = useState(null);
   const [selectedRiskModel, setSelectedRiskModel] = useState(null);
+  const [capital, setCapital] = useState(10000);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -39,6 +40,8 @@ export function PortfolioProvider({ children }) {
         setSelectedPicker,
         selectedRiskModel,
         setSelectedRiskModel,
+        capital,
+        setCapital,
         runOptimize,
         loading,
         error,
