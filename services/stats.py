@@ -1,4 +1,5 @@
 import pandas as pd
+from skfolio import Portfolio
 from skfolio.preprocessing import prices_to_returns
 
 
@@ -11,5 +12,21 @@ def load_benchmark_returns(path: str) -> pd.Series:
     return returns_df["spy"]
 
 
-def compute_stats(ptf) -> dict:
+def compute_stats(ptf: Portfolio) -> dict:
     return ptf.summary().to_dict()
+
+
+def compute_equity_curve(ptf: Portfolio) -> dict:
+    curve = ptf.cumulative_returns_df
+    eq_dates = [d.strftime("%Y-%m-%d") for d in curve.index]
+    eq_values = curve.values.tolist()
+    return {"dates": eq_dates, "values": eq_values}
+
+def compute_sector_weights(weights: dict, ticker_info: pd.DataFrame) -> dict:
+    w_df = (
+        pd.DataFrame.from_dict(weights, orient='index', columns=['weight'])
+        .reset_index()
+        .rename(columns={'index': 'ticker'})
+    )
+    merged = w_df.merge(ticker_info[['ticker', 'sector']], on='ticker', how='left')
+    return merged.groupby('sector')['weight'].sum().to_dict()

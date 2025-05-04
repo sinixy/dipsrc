@@ -6,7 +6,7 @@ export default function OptimizeButton() {
   const disabled = !selectedPicker || !selectedRiskModel || loading;
   return (
     <button
-      className="bg-blue-500 text-white px-4 py-2 rounded disabled:opacity-50"
+      className="bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 rounded disabled:opacity-50"
       onClick={runOptimize}
       disabled={disabled}
     >

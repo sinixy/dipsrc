@@ -105,7 +105,7 @@ def load_stooq_prices(symbols, connection):
         df.to_sql('prices', connection, if_exists='append', index=False)
 
 
-def download_prices(tickers: list[str], start: str = None, end: str = None, interval: str = '1wk') -> pd.DataFrame:
+def download_prices(tickers: list[str], start: str = None, end: str = None, interval: str = '1d') -> pd.DataFrame:
     ''''
     Download price data from yfinance.
     If start is None, download all available data.
@@ -131,6 +131,3 @@ def download_prices(tickers: list[str], start: str = None, end: str = None, inte
     ).sort_values(['Ticker', 'Date']).reset_index(drop=True)
     df.columns = [col.lower() for col in df.columns]
     return df
-
-if __name__ == '__main__':
-    pass
