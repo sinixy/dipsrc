@@ -14,15 +14,29 @@ export default function PortfolioListPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">My Portfolios</h1>
-      <ul className="list-disc pl-5">
+      <div className="space-y-3">
         {list.map(p => (
-          <li key={p._id}>
-            <Link to={`/portfolio/${p._id}`} className="text-blue-600 hover:underline">
-              {p.name || p._id} — {new Date(p.end_date).toLocaleDateString()}
-            </Link>
-          </li>
+          <div
+            key={p._id}
+            className="flex items-center justify-between bg-gray-800 dark:bg-gray-700 p-4 rounded"
+          >
+            <div>
+              <Link
+                to={`/portfolio/${p._id}`}
+                className="text-white text-xl font-semibold hover:underline"
+              >
+                {p.name || p._id}
+              </Link>
+              <div className="text-gray-400 text-sm">
+                {p.allocation.stocks.length || 0} stocks • Created: {new Date(p.created_at).toLocaleDateString()}
+              </div>
+            </div>
+            <div className="text-gray-400 font-semibold text-lg">
+              As of: {new Date(p.end_date).toLocaleDateString()}
+            </div>
+          </div>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }

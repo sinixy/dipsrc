@@ -1,82 +1,129 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useParams } from 'react-router-dom';
-import { getPortfolioById, getReminders, updateReminder } from '../api';
 import TickerCardsGrid from '../components/TickerCardsGrid';
+import { usePortfolioDetail, PortfolioDetailProvider } from '../context/PortfolioDetailContext';
 
-export default function PortfolioDetailPage() {
-  const { id } = useParams();
-  const [portfolio, setPortfolio] = useState(null);
-  const [reminders, setReminders] = useState({}); // map type -> reminder object
-  const [loadingReminders, setLoadingReminders] = useState(false);
-  const [errorReminders, setErrorReminders] = useState(null);
+function DetailContent() {
+  const {
+    originalPortfolio: ptf,
+    reminders,
+    loadingReminders,
+    errorReminders,
+    toggleReminder,
+    rebalanceMethods,
+    rebalanceParams: rb,
+    setRebalanceParams,
+    proposedAllocation,
+    isRebalancing,
+    isAccepting,
+    runRebalance,
+    acceptRebalance,
+    cancelRebalance
+  } = usePortfolioDetail();
 
-  useEffect(() => {
-    getPortfolioById(id)
-      .then(setPortfolio)
-      .catch(console.error);
-
-    setLoadingReminders(true);
-    getReminders(id)
-      .then(list => {
-        const map = {};
-        list.forEach(r => map[r.type] = r);
-        setReminders(map);
-      })
-      .catch(e => setErrorReminders(e.message))
-      .finally(() => setLoadingReminders(false));
-  }, [id]);
-
-  const handleToggle = async (type) => {
-    const rem = reminders[type];
-    if (!rem) return;
-    const newActive = !rem.active;
-    try {
-      const updated = await updateReminder(id, rem._id || rem.id, newActive);
-      setReminders(prev => ({ ...prev, [type]: updated }));
-    } catch (e) {
-      alert(`Could not update ${type} reminder: ${e.message}`);
-    }
-  };
-
-  if (!portfolio) return <div>Loading...</div>;
+  if (!ptf) return <div>Loading portfolio...</div>;
+  const displayAllocation = proposedAllocation || ptf.allocation;
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">{portfolio.name || portfolio._id}</h1>
-      <div>Created at: {new Date(portfolio.created_at).toLocaleString()}</div>
-      <div>Snapshot date: {new Date(portfolio.end_date).toLocaleDateString()}</div>
-      <div>Capital: ${portfolio.capital.toLocaleString()}</div>
-      <div>Model: {portfolio.model}</div>
-      <div>Optimizer: {portfolio.optimizer}</div>
-      <div>Notes: {portfolio.notes}</div>
+      <h1 className="text-2xl font-bold">{ptf.name || ptf._id}</h1>
+      <div>Created at: {new Date(ptf.created_at).toLocaleString()}</div>
+      <div>Snapshot date: {new Date(ptf.end_date).toLocaleDateString()}</div>
+      <div>Capital: ${ptf.capital.toLocaleString()}</div>
+      <div>Model: {ptf.model}</div>
+      <div>Optimizer: {ptf.optimizer}</div>
+      <div>Notes: {ptf.notes}</div>
       <h2 className="text-xl font-semibold mt-4">Stocks</h2>
-      <TickerCardsGrid
-        allocation={portfolio.allocation}
-        tickers={portfolio.tickers}
-      />
+      {!proposedAllocation && (
+        <TickerCardsGrid allocation={displayAllocation} tickers={ptf.tickers} />
+      )}
+
+      <div className="border p-4 rounded bg-gray-50 bg-gray-700 text-gray-200 space-y-2">
+        <h3 className="font-semibold">Rebalance</h3>
+        <div className="flex flex-wrap gap-4 items-center">
+          <select
+            className="border p-2 rounded"
+            value={rb.method}
+            onChange={e => setRebalanceParams({...rb, method: e.target.value})}
+          >
+            <option className="text-gray-600 font-semibold" value="" disabled>Select method</option>
+            {rebalanceMethods.map(m => (
+              <option className="text-gray-600" key={m} value={m}>{m.replace('_', ' ')}</option>
+            ))}
+          </select>
+          <input
+            type="number"
+            className="border p-1 rounded w-32"
+            value={rb.capital}
+            onChange={e => setRebalanceParams({...rb, capital: Number(e.target.value)})}
+          />
+          <input
+            type="date"
+            className="border p-1 rounded"
+            value={rb.asOf}
+            onChange={e => setRebalanceParams({...rb, asOf: e.target.value})}
+          />
+          <button
+            className="bg-blue-500 text-white px-4 py-2 rounded disabled:opacity-50"
+            onClick={runRebalance}
+            disabled={isRebalancing}
+          >{isRebalancing ? 'Rebalancing...' : 'Run'}</button>
+        </div>
+      </div>
+
+      {proposedAllocation && (
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex-1">
+            <h3 className="font-semibold mb-2">Current</h3>
+            <TickerCardsGrid allocation={ptf.allocation} tickers={ptf.tickers} />
+          </div>
+
+          <div class="inline-block min-h-[1em] w-0.5 self-stretch bg-neutral-100 dark:bg-black/50"></div>
+
+          <div className="flex-1">
+            <h3 className="font-semibold mb-2">Proposed</h3>
+            <TickerCardsGrid allocation={proposedAllocation} tickers={ptf.tickers} />
+            <div className="mt-4 flex space-x-5">
+              <button
+                className="bg-green-600 text-white px-4 py-2 rounded disabled:opacity-50"
+                onClick={acceptRebalance}
+                disabled={isAccepting}
+              >{isAccepting ? 'Applying...' : 'Accept'}</button>
+              <button className="px-4 py-2 rounded border" onClick={cancelRebalance}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div>
         <h2 className="text-xl font-semibold mt-4">Reminders</h2>
         {loadingReminders && <div>Loading reminders...</div>}
         {errorReminders && <div className="text-red-500">{errorReminders}</div>}
         {!loadingReminders && (
           <div className="space-y-2">
-            {['daily', 'weekly', 'quarterly'].map(type => {
-              const rem = reminders[type];
-              return (
-                <label key={type} className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={rem?.active || false}
-                    onChange={() => handleToggle(type)}
-                    className="form-checkbox h-5 w-5"
-                  />
-                  <span className="capitalize">{type} reminder</span>
-                </label>
-              );
-            })}
+            {['daily', 'weekly', 'quarterly'].map(type => (
+              <label key={type} className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={reminders[type]?.active || false}
+                  onChange={() => toggleReminder(type)}
+                  className="form-checkbox h-5 w-5"
+                />
+                <span className="capitalize">{type} reminder</span>
+              </label>
+            ))}
           </div>
         )}
+
       </div>
     </div>
+  );
+}
+
+export default function PortfolioDetailPage() {
+  const { id } = useParams();
+  return (
+    <PortfolioDetailProvider portfolioId={id}>
+      <DetailContent />
+    </PortfolioDetailProvider>
   );
 }

@@ -8,7 +8,7 @@ from services.updater import run_full_update
 from services.dataset import PricesCache
 from services.registry import ModelRegistry
 
-from api import pickers, risk, optimize, market, portfolios, user, reminders
+from api import pickers, risk, optimize, market, portfolios, user, reminders, stats
 
 app = FastAPI()
 
@@ -38,6 +38,7 @@ app.include_router(market.router)
 app.include_router(portfolios.router)
 app.include_router(user.router)
 app.include_router(reminders.router)
+app.include_router(stats.router)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

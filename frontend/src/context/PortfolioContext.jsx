@@ -25,6 +25,11 @@ export function PortfolioProvider({ children }) {
     try {
       const data = await optimize(selectedPicker, selectedRiskModel, endDate, capital);
       setResult(data);
+      const charts = await fetch("http://localhost:8000/stats/charts", {
+        method:"POST",
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stocks:data.allocation.stocks, tickers:data.tickers, end_date:endDate })
+      });
     } catch (e) {
       setError(e.message);
     } finally {

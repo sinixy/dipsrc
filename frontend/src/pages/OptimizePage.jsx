@@ -32,16 +32,16 @@ export default function OptimizePage() {
           <SavePortfolio />
           <div className="space-y-6 mt-6">
             <div>
-              <h2 className="text-lg font-semibold mb-2">Statistics</h2>
-              <StatsPanel />
-            </div>
-            <div>
               <h2 className="text-lg font-semibold mb-2">Equity Curve</h2>
               <EquityCurveChart />
             </div>
             <div>
               <h2 className="text-lg font-semibold mb-2">Sector Distribution</h2>
               <SectorBarChart />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold mb-2">Statistics</h2>
+              <StatsPanel />
             </div>
           </div>
         </>

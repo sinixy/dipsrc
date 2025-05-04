@@ -6,7 +6,7 @@ export default function TickerCardsGrid({ allocation, tickers = {} }) {
   const { stocks } = allocation;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-5 lg:grid-cols-7 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-5 lg:grid-cols-6 gap-4">
       {stocks.map(stock => {
         const { ticker, weight, allocated, shares, price } = stock;
         const meta = tickers[ticker] || {};

@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { getPortfolioById, getReminders, optimize as rebalanceApi, savePortfolio as updatePortfolio } from '../api';
+import { getPortfolioById, getReminders, updateReminder, rebalancePortfolio, updatePortfolio, fetchRiskModels } from '../api';
 import { toast } from 'react-toastify';
 
 const PortfolioDetailContext = createContext();
@@ -11,6 +11,7 @@ export function PortfolioDetailProvider({ portfolioId, children }) {
   const [loadingReminders, setLoadingReminders] = useState(false);
   const [errorReminders, setErrorReminders] = useState(null);
 
+  const [rebalanceMethods, setRebalanceMethods] = useState([]);
   const [rebalanceParams, setRebalanceParams] = useState({ method: '', capital: null, asOf: '' });
   const [proposedAllocation, setProposedAllocation] = useState(null);
   const [isRebalancing, setIsRebalancing] = useState(false);
@@ -20,28 +21,39 @@ export function PortfolioDetailProvider({ portfolioId, children }) {
   useEffect(() => {
     getPortfolioById(portfolioId).then(ptf => {
       setOriginalPortfolio(ptf);
-      setRebalanceParams({
-        method: ptf.optimizer,
-        capital: ptf.capital,
-        asOf: ptf.end_date.slice(0,10)
-      });
+      setRebalanceParams({ method: ptf.optimizer, capital: ptf.capital, asOf: ptf.end_date.slice(0,10) });
     });
     setLoadingReminders(true);
     getReminders(portfolioId)
-      .then(list => list.reduce((acc,r)=>{ acc[r.type]=r; return acc; },{}))
+      .then(list => list.reduce((acc, r) => { acc[r.type] = r; return acc; }, {}))
       .then(map => setReminders(map))
       .catch(e => setErrorReminders(e.message))
       .finally(() => setLoadingReminders(false));
+
+    fetchRiskModels()
+      .then(setRebalanceMethods)
+      .catch(e => console.error('Failed to load methods', e));
   }, [portfolioId]);
+
+  const toggleReminder = async (type) => {
+    const rem = reminders[type];
+    if (!rem) return;
+    try {
+      const updated = await updateReminder(portfolioId, rem.id || rem._id, !rem.active);
+      setReminders(prev => ({ ...prev, [type]: updated }));
+    } catch (e) {
+      toast.error(`Could not update ${type} reminder: ${e.message}`);
+    }
+  };
 
   const runRebalance = async () => {
     const { method, capital, asOf } = rebalanceParams;
     setIsRebalancing(true);
     try {
-      const res = await rebalanceApi(portfolioId, method, capital, asOf);
+      const res = await rebalancePortfolio(portfolioId, method, capital, asOf);
       setProposedAllocation(res.allocation);
     } catch(e) {
-      toast.error(`Rebalance failed: ${e.message}`);
+      toast.error(e.message);
     } finally {
       setIsRebalancing(false);
     }
@@ -51,18 +63,13 @@ export function PortfolioDetailProvider({ portfolioId, children }) {
     if (!proposedAllocation) return;
     setIsAccepting(true);
     try {
-      const payload = {
-        ...originalPortfolio,
-        allocation: proposedAllocation,
-        capital: rebalanceParams.capital,
-        end_date: rebalanceParams.asOf
-      };
-      const updated = await updatePortfolio(payload);
+      const payload = { allocation: proposedAllocation, capital: rebalanceParams.capital, end_date: rebalanceParams.asOf };
+      const updated = await updatePortfolio(portfolioId, payload);
       setOriginalPortfolio(updated);
       setProposedAllocation(null);
       toast.success('Rebalance accepted');
     } catch(e) {
-      toast.error(`Accept failed: ${e.message}`);
+      toast.error(e.message);
     } finally {
       setIsAccepting(false);
     }
@@ -76,7 +83,9 @@ export function PortfolioDetailProvider({ portfolioId, children }) {
       reminders,
       loadingReminders,
       errorReminders,
+      toggleReminder,
       rebalanceParams,
+      rebalanceMethods,
       setRebalanceParams,
       proposedAllocation,
       isRebalancing,

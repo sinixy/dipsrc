@@ -16,7 +16,6 @@ export async function optimize(model, riskModel, endDate, capital) {
   const body = { model, risk_model: riskModel };
   if (endDate) body.end_date = endDate;
   if (capital) body.capital = capital;
-  console.log(body);
 
   const res = await fetch(`${BASE_URL}/optimize`, {
     method: 'POST',
@@ -87,6 +86,35 @@ export async function updateReminder(portfolioId, reminderId, active) {
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.detail || 'Failed to update reminder');
+  }
+  return res.json();
+}
+
+export async function updatePortfolio(portfolioId, payload) {
+  const res = await fetch(`${BASE_URL}/portfolios/${portfolioId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || 'Update portfolio failed');
+  }
+  return res.json();
+}
+
+export async function rebalancePortfolio(portfolioId, risk_model, capital, as_of) {
+  const body = { risk_model };
+  if (capital != null) body.capital = capital;
+  if (as_of) body.as_of = as_of;
+  const res = await fetch(`${BASE_URL}/portfolios/${portfolioId}/rebalance`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || 'Rebalance failed');
   }
   return res.json();
 }
