@@ -39,7 +39,7 @@ export function PortfolioProvider({ children }) {
       created_at: new Date().toISOString(),
       end_date: endDate,
       capital,
-      stocks: result.allocation.stocks,
+      allocation: result.allocation,
       model: selectedPicker,
       optimizer: selectedRiskModel,
       notes,

@@ -1,4 +1,3 @@
-import os
 import aiohttp
 import pandas as pd
 from io import StringIO
@@ -15,4 +14,5 @@ async def get_ticker_info(tickers: list[str]) -> pd.DataFrame:
         text = await resp.text()
     df = pd.read_csv(StringIO(text))
     df.columns = [col.lower() for col in df.columns]
+    df.fillna("-", inplace=True)
     return df

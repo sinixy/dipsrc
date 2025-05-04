@@ -17,5 +17,10 @@ class Settings(BaseSettings):
     MONGODB_URI: str = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
     MONGODB_DB: str = os.getenv("MONGODB_DB", "portfolios")
     PORTFOLIO_COLLECTION: str = os.getenv("PORTFOLIO_COLLECTION", "portfolios")
+    USER_COLLECTION: str = os.getenv("USER_COLLECTION", "user")
+    REMINDER_COLLECTION: str = os.getenv("REMINDER_COLLECTION", "reminders")
+    JOBSTORE_COLLECTION: str = os.getenv("JOBSTORE_COLLECTION", "apscheduler_jobs")
+    UPDATES_COLLECTION: str = os.getenv("UPDATES_COLLECTION", "updates")
+
 
 settings = Settings()

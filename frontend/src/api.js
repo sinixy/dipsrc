@@ -42,3 +42,51 @@ export async function savePortfolio(portfolioData) {
   }
   return res.json();
 }
+
+export async function getPortfolios() {
+  const res = await fetch(`${BASE_URL}/portfolios`);
+  if (!res.ok) throw new Error('Failed to fetch portfolios');
+  return res.json();
+}
+
+export async function getPortfolioById(id) {
+  const res = await fetch(`${BASE_URL}/portfolios/${id}`);
+  if (!res.ok) throw new Error('Failed to fetch portfolio');
+  return res.json();
+}
+
+// Update user settings
+export async function updateUserSettings({ telegram_id, email }) {
+  const res = await fetch(`${BASE_URL}/user`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ telegram_id, email }),
+  });
+  if (!res.ok) {
+    throw new Error('Update failed');
+  }
+  return res.json();
+}
+
+export async function getReminders(portfolioId) {
+  const res = await fetch(`${BASE_URL}/portfolios/${portfolioId}/reminders`);
+  if (!res.ok) throw new Error('Failed to fetch reminders');
+  return res.json();
+}
+
+// Update a reminder's active status
+export async function updateReminder(portfolioId, reminderId, active) {
+  const res = await fetch(
+    `${BASE_URL}/portfolios/${portfolioId}/reminders/${reminderId}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active }),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || 'Failed to update reminder');
+  }
+  return res.json();
+}
