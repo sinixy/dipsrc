@@ -1,5 +1,8 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { getPortfolioById, getReminders, updateReminder, rebalancePortfolio, updatePortfolio, fetchRiskModels } from '../api';
+import {
+  getPortfolioById, getReminders, updateReminder,
+  rebalancePortfolio, updatePortfolio, fetchRiskModels, getChartData
+} from '../api';
 import { toast } from 'react-toastify';
 
 const PortfolioDetailContext = createContext();
@@ -17,22 +20,63 @@ export function PortfolioDetailProvider({ portfolioId, children }) {
   const [isRebalancing, setIsRebalancing] = useState(false);
   const [isAccepting, setIsAccepting] = useState(false);
 
+  const [chartData, setChartData] = useState(null);
+  const [chartLoading, setChartLoading] = useState(true); // Start loading true
+  const [chartError, setChartError] = useState(null);
+
   // load portfolio and reminders
   useEffect(() => {
-    getPortfolioById(portfolioId).then(ptf => {
-      setOriginalPortfolio(ptf);
-      setRebalanceParams({ method: ptf.optimizer, capital: ptf.capital, asOf: ptf.end_date.slice(0,10) });
-    });
-    setLoadingReminders(true);
-    getReminders(portfolioId)
-      .then(list => list.reduce((acc, r) => { acc[r.type] = r; return acc; }, {}))
-      .then(map => setReminders(map))
-      .catch(e => setErrorReminders(e.message))
-      .finally(() => setLoadingReminders(false));
+    let isMounted = true; // Prevent state updates on unmounted component
+    const loadData = async () => {
+      try {
+        // Fetch portfolio
+        const ptf = await getPortfolioById(portfolioId);
+        if (!isMounted) return;
+        setOriginalPortfolio(ptf);
+        setRebalanceParams({ method: ptf.optimizer, capital: ptf.capital, asOf: ptf.end_date.slice(0, 10) });
 
-    fetchRiskModels()
-      .then(setRebalanceMethods)
-      .catch(e => console.error('Failed to load methods', e));
+        // Fetch chart data once portfolio is loaded
+        if (ptf && ptf.allocation && ptf.allocation.stocks && ptf.tickers) {
+          setChartLoading(true);
+          setChartError(null);
+          try {
+            const charts = await getChartData(ptf.allocation.stocks, ptf.tickers, ptf.end_date);
+            if (isMounted) setChartData(charts);
+          } catch (chartErr) {
+             if (isMounted) setChartError(chartErr.message);
+          } finally {
+             if (isMounted) setChartLoading(false);
+          }
+        } else {
+           if (isMounted) setChartLoading(false); // No data to fetch charts
+        }
+
+        // Fetch reminders (can run in parallel conceptually)
+        setLoadingReminders(true);
+        getReminders(portfolioId)
+          .then(list => list.reduce((acc, r) => { acc[r.type] = r; return acc; }, {}))
+          .then(map => { if (isMounted) setReminders(map); })
+          .catch(e => { if (isMounted) setErrorReminders(e.message); })
+          .finally(() => { if (isMounted) setLoadingReminders(false); });
+
+        // Fetch risk models (can run in parallel)
+        fetchRiskModels()
+          .then(methods => { if (isMounted) setRebalanceMethods(methods); })
+          .catch(e => console.error('Failed to load methods', e));
+
+      } catch (error) {
+        console.error("Failed to load portfolio details:", error);
+        if (isMounted) {
+          setChartError("Failed to load portfolio details."); // General error
+          setChartLoading(false);
+        }
+      }
+    };
+
+    loadData();
+
+    return () => { isMounted = false; }; // Cleanup function
+
   }, [portfolioId]);
 
   const toggleReminder = async (type) => {
@@ -80,6 +124,9 @@ export function PortfolioDetailProvider({ portfolioId, children }) {
   return (
     <PortfolioDetailContext.Provider value={{
       originalPortfolio,
+      chartData,
+      chartLoading,
+      chartError,
       reminders,
       loadingReminders,
       errorReminders,

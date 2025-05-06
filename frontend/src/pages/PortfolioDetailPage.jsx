@@ -3,6 +3,11 @@ import { useParams } from 'react-router-dom';
 import TickerCardsGrid from '../components/TickerCardsGrid';
 import { usePortfolioDetail, PortfolioDetailProvider } from '../context/PortfolioDetailContext';
 
+import EquityCurveChart from '../components/EquityCurveChart';
+import SectorBarChart from '../components/SectorBarChart';
+import { DrawdownChart } from '../components/DrawdownChart';
+import { Heatmap } from '../components/Heatmap';
+
 function DetailContent() {
   const {
     originalPortfolio: ptf,
@@ -18,7 +23,10 @@ function DetailContent() {
     isAccepting,
     runRebalance,
     acceptRebalance,
-    cancelRebalance
+    cancelRebalance,
+    chartData,
+    chartLoading,
+    chartError
   } = usePortfolioDetail();
 
   if (!ptf) return <div>Loading portfolio...</div>;
@@ -94,6 +102,40 @@ function DetailContent() {
           </div>
         </div>
       )}
+
+<div className="mt-8 pt-6 border-t"> {/* Add separator */}
+        <h2 className="text-xl font-semibold mb-4">Portfolio Analysis (as of {new Date(ptf.end_date).toLocaleDateString()})</h2>
+
+        {/* Chart Loading/Error State */}
+        {chartLoading && <div className="text-center p-4">Loading charts...</div>}
+        {chartError && <div className="text-red-500 p-4">Error loading charts: {chartError}</div>}
+
+        {/* Render charts grid if data is available */}
+        {chartData && !chartLoading && !chartError && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Equity Curve</h3>
+              <EquityCurveChart dates={chartData.dates} equity={chartData.equity} />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Drawdown</h3>
+              <DrawdownChart dates={chartData.dates} drawdowns={chartData.drawdown} />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Sector Distribution</h3>
+              <SectorBarChart sectorLabels={chartData.sector_labels} sectorWeights={chartData.sector_weights} />
+            </div>
+            {/* <div>
+              <h3 className="text-lg font-semibold mb-2">Correlation Heatmap</h3>
+              <Heatmap labels={chartData.tickers} dataPoints={chartData.heatmap_data_points} />
+            </div> */}
+          </div>
+        )}
+         {!chartData && !chartLoading && !chartError && (
+             <div className="text-center text-gray-500 p-4">Chart data could not be generated for this portfolio.</div>
+         )}
+      </div>
+
       <div>
         <h2 className="text-xl font-semibold mt-4">Reminders</h2>
         {loadingReminders && <div>Loading reminders...</div>}

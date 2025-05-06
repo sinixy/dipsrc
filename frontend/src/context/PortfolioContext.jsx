@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect } from 'react';
-import { fetchPickers, fetchRiskModels, optimize, savePortfolio } from '../api';
+import { fetchPickers, fetchRiskModels, optimize, savePortfolio, getChartData } from '../api';
 
 export const PortfolioContext = createContext();
 
@@ -14,6 +14,10 @@ export function PortfolioProvider({ children }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const [chartData, setChartData] = useState(null);
+  const [chartLoading, setChartLoading] = useState(false);
+  const [chartError, setChartError] = useState(null);
+
   useEffect(() => {
     fetchPickers().then(setPickers).catch(console.error);
     fetchRiskModels().then(setRiskModels).catch(console.error);
@@ -22,14 +26,22 @@ export function PortfolioProvider({ children }) {
   const runOptimize = async () => {
     setLoading(true);
     setError(null);
+    setChartData(null);
+    setChartError(null);
     try {
       const data = await optimize(selectedPicker, selectedRiskModel, endDate, capital);
       setResult(data);
-      const charts = await fetch("http://localhost:8000/stats/charts", {
-        method:"POST",
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stocks:data.allocation.stocks, tickers:data.tickers, end_date:endDate })
-      });
+      if (data && data.allocation && data.allocation.stocks && data.tickers) {
+        setChartLoading(true);
+        try {
+          const charts = await getChartData(data.allocation.stocks, data.tickers, endDate);
+          setChartData(charts);
+        } catch (chartErr) {
+          setChartError(chartErr.message);
+        } finally {
+          setChartLoading(false);
+        }
+      }
     } catch (e) {
       setError(e.message);
     } finally {
@@ -70,6 +82,9 @@ export function PortfolioProvider({ children }) {
         loading,
         error,
         result,
+        chartData,
+        chartLoading,
+        chartError,
       }}
     >
       {children}

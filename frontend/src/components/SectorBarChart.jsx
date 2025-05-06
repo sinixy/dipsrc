@@ -1,34 +1,46 @@
-import React, { useContext } from 'react';
+// src/components/SectorBarChart.jsx
+import React from 'react'; // Removed useContext
 import { Bar } from 'react-chartjs-2';
-import { PortfolioContext } from '../context/PortfolioContext';
+// Removed PortfolioContext import
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js';
+import { getSectorColors } from '../utils/colors'; // Assuming you have a color utility
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
-export default function SectorBarChart() {
-  const { result } = useContext(PortfolioContext);
-  if (!result) return null;
-  const sortedSectors = Object.fromEntries(Object.entries(result.sector_weights).sort((a, b) => b[1] - a[1]));
+// Accept sectorLabels and sectorWeights as props
+export default function SectorBarChart({ sectorLabels, sectorWeights }) {
+   // Handle missing data
+  if (!sectorLabels || !sectorWeights || sectorLabels.length === 0 || sectorWeights.length === 0) {
+    return <div className="text-center text-gray-500">Sector data not available.</div>;
+  }
+
+  // Combine labels and weights, then sort
+  const sectors = sectorLabels.map((label, index) => ({
+    label,
+    weight: sectorWeights[index]
+  })).sort((a, b) => b.weight - a.weight); // Sort descending by weight
+
   const data = {
-    labels: Object.keys(sortedSectors),
+    labels: sectors.map(s => s.label), // Use sorted labels
     datasets: [
       {
         label: 'Sector %',
-        data: Object.values(sortedSectors).map(w => w * 100),
+        data: sectors.map(s => s.weight * 100), // Use sorted weights * 100
+        backgroundColor: getSectorColors(sectors.map(s => s.label)), // Get colors based on sorted labels
         borderRadius: 4,
       },
     ],
   };
+
   const options = {
     indexAxis: 'y',
     responsive: true,
+    maintainAspectRatio: false, // Allow height control via className
     plugins: {
       legend: { display: false },
       tooltip: {
         callbacks: {
-          label: context => {
-            return ` ${context.parsed.x.toFixed(2)}%`;
-          },
+          label: context => ` ${context.parsed.x.toFixed(2)}%`,
         },
       },
     },
@@ -37,10 +49,14 @@ export default function SectorBarChart() {
         ticks: {
           callback: val => `${val.toFixed(0)}%`,
         },
-        max: 100,
+        max: 100, // Keep max at 100%
+        beginAtZero: true,
       },
-      y: { ticks: { autoSkip: false } },
+      y: {
+        ticks: { autoSkip: false }
+      },
     },
   };
-  return <Bar data={data} options={options} className="h-48" />;
+  // Added class for sizing
+  return <div className="h-64"><Bar data={data} options={options} /></div>;
 }

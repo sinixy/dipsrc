@@ -118,3 +118,21 @@ export async function rebalancePortfolio(portfolioId, risk_model, capital, as_of
   }
   return res.json();
 }
+
+export async function getChartData(stocks, tickers, endDate) {
+  const body = {
+    stocks: stocks,         // Should be array: [{ ticker: 'AAPL', weight: 0.5 }, ...]
+    tickers: tickers,       // Should be object: { 'AAPL': { sector: 'Technology', ... }, ...}
+    end_date: endDate       // Should be string: 'YYYY-MM-DD'
+  };
+  const res = await fetch(`${BASE_URL}/stats/charts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || 'Failed to fetch chart data');
+  }
+  return res.json(); // Returns { dates, equity, drawdown, sector_labels, sector_weights, tickers, stock_corr }
+}
