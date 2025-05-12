@@ -1,6 +1,7 @@
 import pandas as pd
 from typing import Any
 from skfolio.preprocessing import prices_to_returns
+from sklearn.svm import LinearSVC
 
 
 def normalize_weights(weights: dict, prices: dict | pd.Series, capital: float) -> list[dict[str, float]]:
@@ -37,7 +38,10 @@ def select_tickers(
     # predict probabilities
     X = dataset[feature_cols].values
     dataset = dataset.copy()
-    dataset["pred_proba"] = picker.predict_proba(X)[:, 1]
+    if isinstance(picker, LinearSVC):
+        dataset["pred_proba"] = picker._predict_proba_lr(X)[:, 1]
+    else:
+        dataset["pred_proba"] = picker.predict_proba(X)[:, 1]
 
     # select latest quarter per ticker
     latest_q = dataset.groupby("ticker")["quarter_id"].max().reset_index()
@@ -45,7 +49,7 @@ def select_tickers(
     avg_pred = data_latest.groupby("ticker")["pred_proba"].mean().reset_index()
 
     # tickers with prob > .5
-    selected = avg_pred.loc[avg_pred["pred_proba"] > 0.5, "ticker"].tolist()
+    selected = avg_pred.loc[avg_pred["pred_proba"] > 0.6, "ticker"].tolist()
     return selected
 
 

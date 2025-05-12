@@ -73,7 +73,7 @@ export default function OptimizePage() {
           {result.stats && (
               <div className="mt-6">
                   <h2 className="text-lg font-semibold mb-2">Statistics</h2>
-                  <StatsPanel /> {/* Keep as is, it uses context internally for result.stats */}
+                  <StatsPanel stats={result.stats} />
               </div>
            )}
         </>

@@ -57,6 +57,7 @@ export function PortfolioProvider({ children }) {
       end_date: endDate,
       capital,
       allocation: result.allocation,
+      stats: result.stats,
       model: selectedPicker,
       optimizer: selectedRiskModel,
       notes,

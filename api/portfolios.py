@@ -20,6 +20,7 @@ class PortfolioObject(BaseModel):
     end_date: datetime
     capital: int
     allocation: dict
+    stats: dict
     model: str
     optimizer: str
     notes: Optional[str] = ''
@@ -31,7 +32,7 @@ class RebalanceRequest(BaseModel):
 
 class RebalanceResponse(BaseModel):
     allocation: dict[str, Any]
-    stats: dict[str, str]
+    stats: dict[str, Any]
 
 class UpdatePortfolioRequest(BaseModel):
     allocation: Dict[str, Any]
@@ -142,6 +143,7 @@ async def rebalance_portfolio(
     total_capital = sum(s['allocated'] for s in stocks)
 
     stats = compute_stats(ptf)
+    stats['Assets Number'] = str(len(stocks))
 
     return RebalanceResponse(
         allocation={'stocks': stocks, 'total_capital': total_capital, 'leftover_capital': capital - total_capital},

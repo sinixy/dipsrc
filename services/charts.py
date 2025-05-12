@@ -18,7 +18,7 @@ def generate_chart_data(
     tickers = [s["ticker"] for s in stocks]
     prices = PricesCache.get_prices()
     prices = prices[prices["ticker"].isin(tickers)]
-    prices = prices[prices["date"] <= pd.to_datetime(end_date)]
+    # prices = prices[prices["date"] <= pd.to_datetime(end_date)]
     most_recent_ipo_date = prices.sort_values(["ticker", "date"]).groupby("ticker").head(1)['date'].max()
     prices = prices[prices["date"] >= most_recent_ipo_date]
 

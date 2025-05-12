@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom';
 import TickerCardsGrid from '../components/TickerCardsGrid';
 import { usePortfolioDetail, PortfolioDetailProvider } from '../context/PortfolioDetailContext';
 
+import PorfolioParameters from '../components/PorfolioParameters';
+import StatsPanel from '../components/StatsPanel';
 import EquityCurveChart from '../components/EquityCurveChart';
 import SectorBarChart from '../components/SectorBarChart';
 import { DrawdownChart } from '../components/DrawdownChart';
@@ -35,12 +37,7 @@ function DetailContent() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">{ptf.name || ptf._id}</h1>
-      <div>Created at: {new Date(ptf.created_at).toLocaleString()}</div>
-      <div>Snapshot date: {new Date(ptf.end_date).toLocaleDateString()}</div>
-      <div>Capital: ${ptf.capital.toLocaleString()}</div>
-      <div>Model: {ptf.model}</div>
-      <div>Optimizer: {ptf.optimizer}</div>
-      <div>Notes: {ptf.notes}</div>
+      <PorfolioParameters ptf={ptf} />
       <h2 className="text-xl font-semibold mt-4">Stocks</h2>
       {!proposedAllocation && (
         <TickerCardsGrid allocation={displayAllocation} tickers={ptf.tickers} />
@@ -79,6 +76,27 @@ function DetailContent() {
         </div>
       </div>
 
+      <div>
+        <h2 className="text-xl font-semibold mt-4">Reminders</h2>
+        {loadingReminders && <div>Loading reminders...</div>}
+        {errorReminders && <div className="text-red-500">{errorReminders}</div>}
+        {!loadingReminders && (
+          <div className="space-y-2">
+            {['daily', 'weekly', 'quarterly'].map(type => (
+              <label key={type} className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={reminders[type]?.active || false}
+                  onChange={() => toggleReminder(type)}
+                  className="form-checkbox h-5 w-5"
+                />
+                <span className="capitalize">{type} reminder</span>
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+
       {proposedAllocation && (
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex-1">
@@ -103,15 +121,13 @@ function DetailContent() {
         </div>
       )}
 
-<div className="mt-8 pt-6 border-t"> {/* Add separator */}
+      <div className="mt-8 pt-6 border-t">
         <h2 className="text-xl font-semibold mb-4">Portfolio Analysis (as of {new Date(ptf.end_date).toLocaleDateString()})</h2>
 
-        {/* Chart Loading/Error State */}
         {chartLoading && <div className="text-center p-4">Loading charts...</div>}
         {chartError && <div className="text-red-500 p-4">Error loading charts: {chartError}</div>}
 
-        {/* Render charts grid if data is available */}
-        {chartData && !chartLoading && !chartError && (
+        {chartData && !chartLoading && !chartError && !proposedAllocation && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div>
               <h3 className="text-lg font-semibold mb-2">Equity Curve</h3>
@@ -135,28 +151,9 @@ function DetailContent() {
              <div className="text-center text-gray-500 p-4">Chart data could not be generated for this portfolio.</div>
          )}
       </div>
-
-      <div>
-        <h2 className="text-xl font-semibold mt-4">Reminders</h2>
-        {loadingReminders && <div>Loading reminders...</div>}
-        {errorReminders && <div className="text-red-500">{errorReminders}</div>}
-        {!loadingReminders && (
-          <div className="space-y-2">
-            {['daily', 'weekly', 'quarterly'].map(type => (
-              <label key={type} className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={reminders[type]?.active || false}
-                  onChange={() => toggleReminder(type)}
-                  className="form-checkbox h-5 w-5"
-                />
-                <span className="capitalize">{type} reminder</span>
-              </label>
-            ))}
-          </div>
-        )}
-
-      </div>
+      {!proposedAllocation && (
+      < StatsPanel stats={ptf.stats} />
+      )}
     </div>
   );
 }
